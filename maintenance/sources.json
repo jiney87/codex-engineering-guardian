@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "sources": [
+    {
+      "id": "openai-skills",
+      "url": "https://developers.openai.com/api/docs/guides/tools-skills",
+      "topic": "Agent Skills packaging, frontmatter and discovery"
+    },
+    {
+      "id": "openai-codex-evals",
+      "url": "https://developers.openai.com/blog/eval-skills",
+      "topic": "Skill evaluations and test-driven improvements"
+    },
+    {
+      "id": "github-actions-security",
+      "url": "https://docs.github.com/en/actions/reference/security/secure-use",
+      "topic": "GitHub Actions permissions and secrets"
+    },
+    {
+      "id": "github-dependabot",
+      "url": "https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/auto-update-actions",
+      "topic": "GitHub Actions dependency updates"
+    },
+    {
+      "id": "owasp-asvs",
+      "url": "https://owasp.org/www-project-application-security-verification-standard/",
+      "topic": "Application security verification"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+name: Weekly Standards Watch
+on:
+  schedule:
+    - cron: '37 3 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  update-draft:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Observe approved official sources
+        run: python3 tools/refresh_sources.py --update
+      - name: Verify only metadata changed and tests pass
+        run: |
+          python3 tools/refresh_sources.py --check
+          python3 -m unittest discover -s tests -v
+      - name: Create draft PR when source fingerprints change
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- maintenance/sources.lock.json maintenance/standards-watch.md; then
+            echo "No observed changes; no PR."
+            exit 0
+          fi
+          # Do not flood the repository when a previous standards-watch PR is pending.
+          if gh pr list --state open --json headRefName --jq '.[].headRefName' | grep -q '^bot/standards-watch-'; then
+            echo "Existing standards-watch PR requires human review; no additional PR."
+            exit 0
+          fi
+          branch="bot/standards-watch-${RUN_ID}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git add maintenance/sources.lock.json maintenance/standards-watch.md
+          git commit -m 'docs: observe official standards changes'
+          gh auth setup-git
+          git push origin HEAD:"$branch"
+          gh pr create --draft --base "$BASE_BRANCH" --head "$branch" \
+            --title 'docs: review upstream standards changes' \
+            --body 'Official-source content fingerprints changed. This PR **only updates observations**, not approved engineering rules. Inspect source URLs and assess applicability before editing policy. Never auto-merge.'

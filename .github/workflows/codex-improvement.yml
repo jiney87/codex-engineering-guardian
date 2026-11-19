@@ -1,0 +1,72 @@
+name: Codex Improvement Proposal
+on:
+  schedule:
+    - cron: '15 4 1 * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  propose:
+    # Only runs on trusted default branch events; never a fork pull_request or PR text.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Determine whether private API credentials are configured
+        id: credential
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then echo 'enabled=true' >> "$GITHUB_OUTPUT";
+          else echo 'enabled=false' >> "$GITHUB_OUTPUT"; fi
+      - name: Generate restricted AI improvement proposal
+        if: steps.credential.outputs.enabled == 'true'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: maintenance/codex-proposal-prompt.md
+          sandbox: workspace-write
+      - name: Validate and submit draft PR
+        if: steps.credential.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Hard fail if agent changed anything outside its single allowed proposal file.
+          disallowed="$(git status --porcelain --untracked-files=all | sed -E 's/^...//' | grep -Ev '^(maintenance/AI_PROPOSAL.md|skills/engineering-guardian/references/technology.md)$' || true)"
+          if [ -n "$disallowed" ]; then
+            echo '::error::AI edited files outside allowed maintenance proposal path'
+            printf '%s\n' "$disallowed"
+            exit 1
+          fi
+          python3 skills/engineering-guardian/scripts/validate_skill.py
+          python3 -m unittest discover -s tests -v
+          if git diff --quiet -- maintenance/AI_PROPOSAL.md skills/engineering-guardian/references/technology.md; then
+            echo 'No changed proposal or rules; no PR.'
+            exit 0
+          fi
+          if gh pr list --state open --json headRefName --jq '.[].headRefName' | grep -q '^bot/codex-proposal-'; then
+            echo 'Previous Codex proposal awaits review; no additional PR.'; exit 0
+          fi
+          branch="bot/codex-proposal-${RUN_ID}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git add maintenance/AI_PROPOSAL.md skills/engineering-guardian/references/technology.md
+          git diff --cached --quiet && exit 0
+          git commit -m 'docs: propose engineering skill improvements for review'
+          gh auth setup-git
+          git push origin HEAD:"$branch"
+          gh pr create --draft --base "$BASE_BRANCH" --head "$branch" \
+            --title 'docs: Codex engineering improvement proposal' \
+            --body 'AI-generated **suggestions only**. Must verify cited sources and tests, then approve a separate change before modifying the accepted Skill or workflow. Never auto-merge.'

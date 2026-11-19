@@ -1,0 +1,4 @@
+interface:
+  display_name: "Engineering Guardian"
+  short_description: "Design, test, review and continuously improve maintainable code"
+  default_prompt: "Use $engineering-guardian to implement or review this change with explicit acceptance criteria, verified tests and a two-pass self-review."
