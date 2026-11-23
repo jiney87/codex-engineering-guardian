@@ -1,4 +1,15 @@
 {
   "schema": 1,
-  "sources": {}
+  "sources": {
+    "openai-codex-evals": {
+      "url": "https://developers.openai.com/blog/eval-skills",
+      "sha256": "aab35fac867c44a8ef909a157cb314c8a423a7574dfc052f0ab6f3e20d1402ea",
+      "observed_on": "2026-11-23"
+    },
+    "github-actions-security": {
+      "url": "https://docs.github.com/en/actions/reference/security/secure-use",
+      "sha256": "388dd4c505eb875790241093d3eb5e94b0ce186bde59ab4d11705666c74189c6",
+      "observed_on": "2026-11-23"
+    }
+  }
 }
